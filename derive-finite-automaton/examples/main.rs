@@ -1,5 +1,5 @@
 use derive_finite_automaton::{
-    FiniteAutomata, FiniteAutomataConstructor, GetNextResult, GetAutomataStateForValue,
+    FiniteAutomata, FiniteAutomataConstructor, GetAutomataStateForValue, GetNextResult,
 };
 
 #[derive(Debug, FiniteAutomataConstructor)]

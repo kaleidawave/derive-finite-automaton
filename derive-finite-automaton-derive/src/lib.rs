@@ -31,7 +31,7 @@ fn expand_trie(
             if let Some(value) = &sub_trie.1 {
                 let arm: Arm = parse_quote! {
                     (States::#prev_state, #chr) => ::derive_finite_automaton::GetNextResult::Result {
-                        result: #value, 
+                        result: #value,
                         ate_character: true
                     },
                 };
@@ -87,7 +87,7 @@ fn expand_trie(
 }
 
 /// A comma separated list of `"*sequence*" => *output*`
-struct Mappings(syn::punctuated::Punctuated<(Vec<char>, syn::Expr), syn::token::Comma>);
+struct Mappings(syn::punctuated::Punctuated<(LitStr, syn::Expr), syn::token::Comma>);
 
 impl Parse for Mappings {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
