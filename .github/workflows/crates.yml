@@ -26,6 +26,7 @@ jobs:
           working-directory: derive-finite-automaton-derive
       - name: Updated derive crate version in main crate toml
         run: |
+          echo "Updating derive-finite-automaton-derive to ${{ steps.release.outputs.new-version }}"
           cargo install cargo-edit --features upgrade
           cargo add derive-finite-automaton-derive --vers ${{ steps.release-derive.outputs.new-version }} --path "../derive-finite-automaton-derive"
         working-directory: derive-finite-automaton
