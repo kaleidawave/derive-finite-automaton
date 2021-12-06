@@ -1,0 +1,2 @@
+[workspace]
+members = ["derive-finite-automaton", "derive-finite-automaton-derive"]

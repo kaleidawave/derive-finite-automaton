@@ -1,0 +1,44 @@
+name: Release crate
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "major/minor/patch or semver"
+        required: false
+        default: "patch"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set git credentials
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+      - name: Publish derive crate
+        uses: kaleidawave/crates-release-gh-action@v1
+        id: release-derive
+        with:
+          version: ${{ github.event.inputs.version }}
+          crates-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          working-directory: derive-finite-automaton-derive
+      - name: Updated derive crate version in main crate toml
+        run: |
+          cargo install cargo-edit --features upgrade
+          cargo add derive-finite-automaton-derive --vers ${{ steps.release-derive.outputs.new-version }} --path "../derive-finite-automaton-derive"
+        working-directory: derive-finite-automaton
+      - name: Publish main crate
+        uses: kaleidawave/crates-release-gh-action@v1
+        id: release
+        with:
+          version: ${{ github.event.inputs.version }}
+          crates-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          working-directory: derive-finite-automaton
+      - name: Push updated Cargo.toml
+        run: |
+          git tag "v${{ steps.release.outputs.new-version }}"
+          git add .
+          git commit -m "Release: ${{ steps.release.outputs.new-version }}"
+          git push --tags origin main
