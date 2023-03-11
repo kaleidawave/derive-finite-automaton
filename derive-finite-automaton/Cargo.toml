@@ -13,3 +13,7 @@ edition = "2018"
 
 [dependencies]
 derive-finite-automaton-derive = { version = "0.1.0", path = "../derive-finite-automaton-derive" }
+
+# Just for the example
+# [features]
+# special = []

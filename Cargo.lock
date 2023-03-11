@@ -13,9 +13,17 @@ dependencies = [
 name = "derive-finite-automaton-derive"
 version = "0.1.0"
 dependencies = [
+ "either_n",
+ "proc-macro2",
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "either_n"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c91ae510829160d5cfb19eb4ae7b6e01d44b767ca8f727c6cee936e53cc9ae5"
 
 [[package]]
 name = "proc-macro2"
