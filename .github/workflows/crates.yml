@@ -29,8 +29,8 @@ jobs:
         with:
           version: |
             {
-              "get-field-by-type": "${{ github.event.inputs.version }}", 
-              "get-field-by-type-derive": "${{ github.event.inputs.derive-version }}" 
+              "derive-finite-automaton": "${{ github.event.inputs.version }}", 
+              "derive-finite-automaton-derive": "${{ github.event.inputs.derive-version }}" 
             }
           crates-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
       - name: Push updated Cargo.toml
