@@ -10,9 +10,10 @@ use derive_finite_automaton::FiniteAutomataConstructor;
     "=" => Tokens::Assign,
     // Some mapping
     "." => Tokens::Dot,
-    #[cfg(feature = "special")]
-    ".?." => Tokens::Magic,
 )]
+#[cfg_attr(feature = "special", automaton_mappings(
+    ".?." => Tokens::Magic,
+))]
 pub enum Tokens {
     OpenBrace,
     CloseBrace,
@@ -21,6 +22,7 @@ pub enum Tokens {
     StrictEqual,
     Assign,
     Dot,
+    #[cfg(feature = "special")]
     Magic,
 }
 
