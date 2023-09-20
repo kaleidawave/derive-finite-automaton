@@ -1,7 +1,7 @@
 [package]
 name = "derive-finite-automaton"
 description = "Procedural macro for generating finite automaton"
-version = "0.1.2"
+version = "0.1.3"
 repository = "https://github.com/kaleidawave/derive-finite-automaton"
 authors = ["Ben <kaleidawave@gmail.com>"]
 keywords = ["parsing", "tokenization", "utils"]
@@ -12,7 +12,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-derive-finite-automaton-derive = { version = "0.1.2", path = "../derive-finite-automaton-derive" }
+derive-finite-automaton-derive = { version = "0.1.3", path = "../derive-finite-automaton-derive" }
 
 # Just for the example
 [features]
