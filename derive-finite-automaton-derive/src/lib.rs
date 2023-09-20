@@ -34,6 +34,7 @@ pub fn stateful_trie_constructor(input: TokenStream) -> TokenStream {
         name.to_string().to_uppercase()
     );
 
+    // TODO `(unknown_state, _) => unreachable!()` fix for conditional states isn't great
     let output = quote! {
         const #wrapper: () = {
             #[derive(PartialEq, Eq, Clone, Debug)]
@@ -56,6 +57,7 @@ pub fn stateful_trie_constructor(input: TokenStream) -> TokenStream {
                 fn get_next(self, chr: char) -> ::derive_finite_automaton::GetNextResult<#name, States> {
                     match (&self, chr) {
                         #( #arms )*
+                        (unknown_state, _) => unreachable!("state under #[cfg] generated")
                     }
                 }
             }
