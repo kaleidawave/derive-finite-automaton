@@ -1,7 +1,7 @@
 [package]
 name = "derive-finite-automaton-derive"
 description = "Procedural macro for generating finite automaton"
-version = "0.1.1"
+version = "0.1.2"
 repository = "https://github.com/kaleidawave/derive-finite-automaton"
 authors = ["Ben <kaleidawave@gmail.com>"]
 keywords = ["parsing", "tokenization", "utils"]
