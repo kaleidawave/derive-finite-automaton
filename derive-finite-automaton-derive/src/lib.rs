@@ -18,7 +18,7 @@ pub fn stateful_trie_constructor(input: TokenStream) -> TokenStream {
     let filter = input
         .attrs
         .iter()
-        .filter(|attr| attr.path.is_ident("automaton_mappings"));
+        .filter(|attr| attr.path().is_ident("automaton_mappings"));
 
     for attribute in filter {
         let m = attribute.parse_args::<trie::Mappings>().unwrap();

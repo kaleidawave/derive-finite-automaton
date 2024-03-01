@@ -48,7 +48,7 @@ pub(super) fn expand_trie(
             let new_state_name_ident = {
                 let as_string = prev_state.to_string();
                 count += 1;
-                let state_name = (count + 'A' as u8) as char;
+                let state_name = (count + b'A') as char;
                 // Creating state names:
                 if as_string.is_empty() || as_string == crate::NO_STATE_NAME {
                     Ident::new(&state_name.to_string(), Span::call_site())
@@ -114,7 +114,7 @@ pub(super) struct Mappings(syn::punctuated::Punctuated<(Vec<Matcher>, Expr), syn
 impl syn::parse::Parse for Mappings {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         input
-            .parse_terminated::<_, Token![,]>(parse_item_to_matchers_and_expression)
+            .parse_terminated(parse_item_to_matchers_and_expression, Token![,])
             .map(Self)
     }
 }
@@ -128,41 +128,24 @@ impl Mappings {
 fn parse_item_to_matchers_and_expression(
     input: &syn::parse::ParseBuffer<'_>,
 ) -> Result<(Vec<Matcher>, Expr), SynError> {
-    let pat: Pat = input.parse()?;
+    let pat: Pat = Pat::parse_multi(input)?;
     let matchers: Vec<Matcher> = if let Pat::Slice(slice) = pat {
         let mut matchers = Vec::new();
         for pat in slice.elems.iter() {
             let matcher = match pat {
-                Pat::Lit(PatLit { expr, .. }) => {
-                    if let Expr::Lit(ExprLit {
-                        lit: Lit::Char(chr),
-                        ..
-                    }) = &**expr
-                    {
-                        Matcher::Single(chr.value())
-                    } else {
-                        return Err(SynError::new(
-                            Span::call_site(),
-                            "Expected character matcher",
-                        ));
-                    }
-                }
+                Pat::Lit(PatLit {
+                    lit: Lit::Char(chr),
+                    ..
+                }) => Matcher::Single(chr.value()),
                 Pat::Or(PatOr { cases, .. }) => {
                     let mut char_cases = Vec::new();
                     for case in cases {
-                        if let Pat::Lit(PatLit { expr, .. }) = case {
-                            if let Expr::Lit(ExprLit {
-                                lit: Lit::Char(chr),
-                                ..
-                            }) = &**expr
-                            {
-                                char_cases.push(chr.value());
-                            } else {
-                                return Err(SynError::new(
-                                    Span::call_site(),
-                                    "Expected character matcher",
-                                ));
-                            }
+                        if let Pat::Lit(PatLit {
+                            lit: Lit::Char(chr),
+                            ..
+                        }) = case
+                        {
+                            char_cases.push(chr.value());
                         } else {
                             return Err(SynError::new(
                                 Span::call_site(),
@@ -172,7 +155,11 @@ fn parse_item_to_matchers_and_expression(
                     }
                     Matcher::Or(char_cases)
                 }
-                Pat::Range(PatRange { lo, hi, .. }) => {
+                Pat::Range(PatRange {
+                    start: Some(start),
+                    end: Some(end),
+                    ..
+                }) => {
                     if let (
                         Expr::Lit(ExprLit {
                             lit: Lit::Char(chr_lo),
@@ -182,7 +169,7 @@ fn parse_item_to_matchers_and_expression(
                             lit: Lit::Char(chr_hi),
                             ..
                         }),
-                    ) = (&**lo, &**hi)
+                    ) = (&**start, &**end)
                     {
                         Matcher::Range {
                             from: chr_lo.value(),
@@ -206,12 +193,8 @@ fn parse_item_to_matchers_and_expression(
             matchers.push(matcher);
         }
         matchers
-    } else if let Pat::Lit(PatLit { expr, .. }) = pat {
-        if let Expr::Lit(ExprLit {
-            lit: Lit::Str(string),
-            ..
-        }) = &*expr
-        {
+    } else if let Pat::Lit(PatLit { lit, .. }) = pat {
+        if let Lit::Str(string) = lit {
             string.value().chars().map(Matcher::Single).collect()
         } else {
             return Err(SynError::new(

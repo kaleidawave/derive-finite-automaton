@@ -19,7 +19,7 @@ proc-macro = true
 proc-macro2 = "1.0"
 either_n = "0.2"
 quote = "1.0"
-syn = { version = "1.0", features = [
+syn = { version = "2.0", features = [
   "printing",
   "full",
   "parsing",

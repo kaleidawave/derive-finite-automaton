@@ -44,7 +44,7 @@ fn main() {
     for (idx, chr) in source.char_indices() {
         match state {
             LexingState::Literal => {
-                if !matches!(chr, 'a'..='z' | 'A'..='Z') {
+                if !chr.is_ascii_alphabetic() {
                     tokens.push(Tokens::Literal(source[start..idx].to_owned()));
                     start = 0;
                     state = LexingState::None;
