@@ -4,14 +4,14 @@ version = 3
 
 [[package]]
 name = "derive-finite-automaton"
-version = "0.1.3"
+version = "0.2.0"
 dependencies = [
  "derive-finite-automaton-derive",
 ]
 
 [[package]]
 name = "derive-finite-automaton-derive"
-version = "0.1.3"
+version = "0.2.0"
 dependencies = [
  "either_n",
  "proc-macro2",
