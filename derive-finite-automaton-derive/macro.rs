@@ -8,20 +8,23 @@ use trie::Trie;
 
 pub(crate) const NO_STATE_NAME: &str = "None";
 
-#[proc_macro_derive(FiniteAutomataConstructor, attributes(automaton_mappings))]
+#[proc_macro_derive(
+    FiniteAutomataConstructor,
+    attributes(automaton_mappings, automaton_item_type)
+)]
 pub fn stateful_trie_constructor(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = input.ident;
 
     let mut mappings = None::<trie::Mappings>;
 
-    let filter = input
+    let automaton_mappings = input
         .attrs
         .iter()
         .filter(|attr| attr.path().is_ident("automaton_mappings"));
 
-    for attribute in filter {
-        let m = attribute.parse_args::<trie::Mappings>().unwrap();
+    for mapping in automaton_mappings {
+        let m = mapping.parse_args::<trie::Mappings>().unwrap();
         if let Some(em) = mappings.as_mut() {
             em.extend(m);
         } else {
@@ -29,7 +32,15 @@ pub fn stateful_trie_constructor(input: TokenStream) -> TokenStream {
         }
     }
 
-    let trie: Trie<char, Expr> = mappings.unwrap().into();
+    // TODO unwrap here
+    let item_type: Ident = input
+        .attrs
+        .iter()
+        .find(|attr| attr.path().is_ident("automaton_item_type"))
+        .map(|attr| attr.parse_args().unwrap())
+        .unwrap_or_else(|| Ident::new("char", Span::call_site()));
+
+    let trie: Trie<crate::trie::Item, Expr> = mappings.unwrap().into();
 
     let (mut states, mut arms): (Vec<Ident>, Vec<Arm>) = Default::default();
 
@@ -38,6 +49,7 @@ pub fn stateful_trie_constructor(input: TokenStream) -> TokenStream {
     trie::expand_trie(&trie, &mut arms, &mut states, &no_state_ident);
 
     // Wrap in this const thingy to not pollute global namespace but stay accessible
+    // TODO this comes up in errors sometimes
     let wrapper = format_ident!(
         "_DERIVE_STATEFUL_TRIE_CONSTRUCTOR_FOR_{}",
         name.to_string().to_uppercase()
@@ -61,9 +73,10 @@ pub fn stateful_trie_constructor(input: TokenStream) -> TokenStream {
 
             impl ::derive_finite_automaton::FiniteAutomata<#name> for States {
                 type State = States;
+                type Item = #item_type;
 
-                fn get_next(self, chr: char) -> ::derive_finite_automaton::GetNextResult<#name, States> {
-                    match (&self, chr) {
+                fn get_next(self, item: Self::Item) -> ::derive_finite_automaton::GetNextResult<#name, States> {
+                    match (&self, item) {
                         #( #arms )*
                     }
                 }

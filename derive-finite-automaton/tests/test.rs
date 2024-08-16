@@ -40,7 +40,7 @@ fn test() {
         automata.get_next('{'),
         GetNextResult::Result {
             result: Tokens::OpenBrace,
-            ate_character: true
+            ate_item: true
         }
     );
 
@@ -49,7 +49,7 @@ fn test() {
         automata.get_next('}'),
         GetNextResult::Result {
             result: Tokens::CloseBrace,
-            ate_character: true
+            ate_item: true
         }
     );
 
@@ -59,7 +59,7 @@ fn test() {
         new_automaton.get_next('t'),
         GetNextResult::Result {
             result: Tokens::Assign,
-            ate_character: false
+            ate_item: false
         }
     );
 
@@ -69,13 +69,13 @@ fn test() {
         new_automaton.get_next('>'),
         GetNextResult::Result {
             result: Tokens::ArrowFunction,
-            ate_character: true
+            ate_item: true
         }
     );
 
     let automata = Tokens::new_automaton();
     let res = automata.get_next('#');
-    let new_automaton = assert_is!(res, GetNextResult::InvalidCharacter);
+    let new_automaton = assert_is!(res, GetNextResult::InvalidItem);
     assert_eq!(new_automaton.received, '#');
     assert_eq!(
         new_automaton

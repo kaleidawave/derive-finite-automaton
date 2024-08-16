@@ -1,3 +1,5 @@
+#![doc = include_str!("./README.md")]
+
 use std::fmt::{self, Display};
 
 pub use derive_finite_automaton_derive::FiniteAutomataConstructor;
@@ -5,12 +7,15 @@ pub use derive_finite_automaton_derive::FiniteAutomataConstructor;
 pub trait FiniteAutomata<T>: Sized {
     /// A data type which holds state under the trie
     type State;
-    fn get_next(self, c: char) -> GetNextResult<T, Self>;
+    type Item: std::fmt::Debug + PartialEq + Eq + 'static;
+
+    fn get_next(self, c: Self::Item) -> GetNextResult<T, Self>;
 }
 
 /// A type for which a stateful trie can be built
 pub trait FiniteAutomataConstructor: Sized {
     type FiniteAutomata: FiniteAutomata<Self>;
+
     fn new_automaton() -> Self::FiniteAutomata;
 }
 
@@ -20,30 +25,36 @@ pub trait FiniteAutomataConstructor: Sized {
 pub enum GetNextResult<T, FA: FiniteAutomata<T>> {
     Result {
         result: T,
-        /// Whether the character was consumed by the action
-        ate_character: bool,
+        /// Whether the item was consumed by the action
+        ate_item: bool,
     },
     NewState(FA),
-    InvalidCharacter(InvalidCharacter),
+    InvalidItem(InvalidItem<FA::Item>),
 }
 
 pub type GetAutomataStateForValue<T> =
     <<T as FiniteAutomataConstructor>::FiniteAutomata as FiniteAutomata<T>>::State;
 
-/// Character found initially which does that have transition
+/// Item found initially which does that have transition
 #[derive(Debug, PartialEq, Eq)]
-pub struct InvalidCharacter {
-    pub received: char,
-    pub expected: &'static [char],
+pub struct InvalidItem<T>
+where
+    T: std::fmt::Debug + PartialEq + Eq + 'static,
+{
+    pub received: T,
+    pub expected: &'static [T],
 }
 
-impl Display for InvalidCharacter {
+impl<T> Display for InvalidItem<T>
+where
+    T: std::fmt::Debug + PartialEq + Eq,
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("Expected ")?;
         match self.expected {
             [] => unreachable!(),
             [a] => f.write_fmt(format_args!("{:?}", a)),
-            [a, b] => f.write_fmt(format_args!("{:?} or {:?}", a, b)),
+            // [a, b] => f.write_fmt(format_args!("{:?} or {:?}", a, b)),
             [head @ .., end] => f.write_fmt(format_args!(
                 "{} or {:?}",
                 head.iter()
@@ -61,4 +72,4 @@ impl Display for InvalidCharacter {
     }
 }
 
-impl std::error::Error for InvalidCharacter {}
+impl<T> std::error::Error for InvalidItem<T> where T: std::fmt::Debug + PartialEq + Eq + 'static {}
