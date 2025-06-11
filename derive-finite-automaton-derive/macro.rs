@@ -46,42 +46,41 @@ pub fn stateful_trie_constructor(input: TokenStream) -> TokenStream {
 
     let no_state_ident = Ident::new(NO_STATE_NAME, Span::call_site());
 
-    trie::expand_trie(&trie, &mut arms, &mut states, &no_state_ident);
+    let states_ident = format_ident!("{}States", name.to_string().to_uppercase());
 
-    // Wrap in this const thingy to not pollute global namespace but stay accessible
-    // TODO this comes up in errors sometimes
-    let wrapper = format_ident!(
-        "_DERIVE_STATEFUL_TRIE_CONSTRUCTOR_FOR_{}",
-        name.to_string().to_uppercase()
+    trie::expand_trie(
+        &trie,
+        &mut arms,
+        &mut states,
+        &no_state_ident,
+        &states_ident,
     );
 
     let output = quote! {
-        const #wrapper: () = {
-            #[derive(PartialEq, Eq, Clone, Debug)]
-            pub enum States {
-                #no_state_ident,
-                #( #states ),*
+        #[derive(PartialEq, Eq, Clone, Debug)]
+        pub enum #states_ident {
+            #no_state_ident,
+            #( #states ),*
+        }
+
+        impl ::derive_finite_automaton::FiniteAutomataConstructor for #name {
+            type FiniteAutomata = #states_ident;
+
+            fn new_automaton() -> #states_ident {
+                #states_ident::#no_state_ident
             }
+        }
 
-            impl ::derive_finite_automaton::FiniteAutomataConstructor for #name {
-                type FiniteAutomata = States;
+        impl ::derive_finite_automaton::FiniteAutomata<#name> for #states_ident {
+            type State = #states_ident;
+            type Item = #item_type;
 
-                fn new_automaton() -> States {
-                    States::#no_state_ident
+            fn get_next(self, item: Self::Item) -> ::derive_finite_automaton::GetNextResult<#name, #states_ident> {
+                match (&self, item) {
+                    #( #arms )*
                 }
             }
-
-            impl ::derive_finite_automaton::FiniteAutomata<#name> for States {
-                type State = States;
-                type Item = #item_type;
-
-                fn get_next(self, item: Self::Item) -> ::derive_finite_automaton::GetNextResult<#name, States> {
-                    match (&self, item) {
-                        #( #arms )*
-                    }
-                }
-            }
-        };
+        }
     };
 
     output.into()

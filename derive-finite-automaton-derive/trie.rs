@@ -43,8 +43,6 @@ impl Item {
 }
 
 /// A trie based data structure
-///
-/// `K=key,C=condition,V=Value`
 #[derive(Clone, Debug)]
 pub(crate) struct Trie<K, V>(HashMap<K, Trie<K, V>>, Option<V>);
 
@@ -63,6 +61,7 @@ pub(super) fn expand_trie(
     arms: &mut Vec<Arm>,
     states: &mut Vec<Ident>,
     prev_state: &Ident,
+    states_ident: &Ident,
 ) {
     let mut count: u8 = 0;
     for (key, sub_trie) in trie.0.iter() {
@@ -70,7 +69,7 @@ pub(super) fn expand_trie(
         if sub_trie.is_leaf() {
             if let Some(value) = &sub_trie.1 {
                 let arm: Arm = parse_quote! {
-                    (States::#prev_state, #item) => ::derive_finite_automaton::GetNextResult::Result {
+                    (#states_ident::#prev_state, #item) => ::derive_finite_automaton::GetNextResult::Result {
                         result: #value,
                         ate_item: true
                     },
@@ -96,18 +95,18 @@ pub(super) fn expand_trie(
             states.push(new_state_name_ident.clone());
 
             let arm: Arm = parse_quote! {
-                (States::#prev_state, #item) => ::derive_finite_automaton::GetNextResult::NewState(States::#new_state_name_ident),
+                (#states_ident::#prev_state, #item) => ::derive_finite_automaton::GetNextResult::NewState(#states_ident::#new_state_name_ident),
             };
             arms.push(arm);
 
-            expand_trie(sub_trie, arms, states, &new_state_name_ident);
+            expand_trie(sub_trie, arms, states, &new_state_name_ident, states_ident);
 
             if let Some(value) = &sub_trie.1 {
                 let result = quote! {
                     ::derive_finite_automaton::GetNextResult::Result { result: #value, ate_item: false, }
                 };
                 let arm: Arm = parse_quote! {
-                    (States::#new_state_name_ident, _) => #result,
+                    (#states_ident::#new_state_name_ident, _) => #result,
                 };
                 arms.push(arm);
             }
@@ -127,7 +126,7 @@ pub(super) fn expand_trie(
             )
         };
         let arm: Arm = parse_quote! {
-            (States::#prev_state, item) => #result,
+            (#states_ident::#prev_state, item) => #result,
         };
         arms.push(arm);
     }

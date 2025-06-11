@@ -32,6 +32,7 @@ pub enum GetNextResult<T, FA: FiniteAutomata<T>> {
     InvalidItem(InvalidItem<FA::Item>),
 }
 
+/// Helper for getting the state item used in the automata
 pub type GetAutomataStateForValue<T> =
     <<T as FiniteAutomataConstructor>::FiniteAutomata as FiniteAutomata<T>>::State;
 
