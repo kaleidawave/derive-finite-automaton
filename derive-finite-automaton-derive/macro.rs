@@ -57,30 +57,32 @@ pub fn stateful_trie_constructor(input: TokenStream) -> TokenStream {
     );
 
     let output = quote! {
-        #[derive(PartialEq, Eq, Clone, Debug)]
-        pub enum #states_ident {
-            #no_state_ident,
-            #( #states ),*
-        }
-
-        impl ::derive_finite_automaton::FiniteAutomataConstructor for #name {
-            type FiniteAutomata = #states_ident;
-
-            fn new_automaton() -> #states_ident {
-                #states_ident::#no_state_ident
+        const _: () = {
+            #[derive(PartialEq, Eq, Clone, Debug)]
+            pub enum #states_ident {
+                #no_state_ident,
+                #( #states ),*
             }
-        }
 
-        impl ::derive_finite_automaton::FiniteAutomata<#name> for #states_ident {
-            type State = #states_ident;
-            type Item = #item_type;
+            impl ::derive_finite_automaton::FiniteAutomataConstructor for #name {
+                type FiniteAutomata = #states_ident;
 
-            fn get_next(self, item: Self::Item) -> ::derive_finite_automaton::GetNextResult<#name, #states_ident> {
-                match (&self, item) {
-                    #( #arms )*
+                fn new_automaton() -> #states_ident {
+                    #states_ident::#no_state_ident
                 }
             }
-        }
+
+            impl ::derive_finite_automaton::FiniteAutomata<#name> for #states_ident {
+                type State = #states_ident;
+                type Item = #item_type;
+
+                fn get_next(self, item: Self::Item) -> ::derive_finite_automaton::GetNextResult<#name, #states_ident> {
+                    match (&self, item) {
+                        #( #arms )*
+                    }
+                }
+            }
+        };
     };
 
     output.into()

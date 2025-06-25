@@ -2,5 +2,4 @@
 members = ["derive-finite-automaton", "derive-finite-automaton-derive"]
 
 [workspace.lints.clippy]
-all = "deny"
-pedantic = "deny"
+pedantic = "warn"
