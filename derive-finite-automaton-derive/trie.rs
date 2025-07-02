@@ -3,13 +3,46 @@ use std::{collections::HashMap, iter};
 use proc_macro2::{Ident, Span};
 use quote::quote;
 use syn::{
-    parse_quote, Arm, Error as SynError, Expr, ExprLit, Lit, LitChar, Pat, PatLit, PatOr, PatRange,
-    Token,
+    parse_quote, Arm, Error as SynError, Expr, ExprLit, Lit, LitByte, LitChar, Pat, PatLit, PatOr,
+    PatRange, Token,
 };
 
+/// TODO other items
+#[derive(PartialEq, Eq, Hash, Debug, Clone)]
+pub enum Item {
+    Char(char),
+    Byte(u8),
+}
+
+impl Item {
+    pub fn from_lit(lit: &Lit) -> Result<Self, SynError> {
+        match lit {
+            Lit::Byte(item) => Ok(Item::Byte(item.value())),
+            Lit::Char(item) => Ok(Item::Char(item.value())),
+            _ => Err(SynError::new(
+                Span::call_site(),
+                "Expected item or byte matcher",
+            )),
+        }
+    }
+
+    pub fn as_pattern(&self) -> Pat {
+        match self {
+            Item::Char(key) => ExprLit {
+                attrs: Default::default(),
+                lit: LitChar::new(*key, Span::call_site()).into(),
+            }
+            .into(),
+            Item::Byte(byte) => ExprLit {
+                attrs: Default::default(),
+                lit: LitByte::new(*byte, Span::call_site()).into(),
+            }
+            .into(),
+        }
+    }
+}
+
 /// A trie based data structure
-///
-/// `K=key,C=condition,V=Value`
 #[derive(Clone, Debug)]
 pub(crate) struct Trie<K, V>(HashMap<K, Trie<K, V>>, Option<V>);
 
@@ -24,20 +57,21 @@ impl<K, V> Trie<K, V> {
 }
 
 pub(super) fn expand_trie(
-    trie: &Trie<char, Expr>,
+    trie: &Trie<Item, Expr>,
     arms: &mut Vec<Arm>,
     states: &mut Vec<Ident>,
     prev_state: &Ident,
+    states_ident: &Ident,
 ) {
     let mut count: u8 = 0;
     for (key, sub_trie) in trie.0.iter() {
-        let chr = LitChar::new(*key, Span::call_site());
+        let item = key.as_pattern();
         if sub_trie.is_leaf() {
             if let Some(value) = &sub_trie.1 {
                 let arm: Arm = parse_quote! {
-                    (States::#prev_state, #chr) => ::derive_finite_automaton::GetNextResult::Result {
+                    (#states_ident::#prev_state, #item) => ::derive_finite_automaton::GetNextResult::Result {
                         result: #value,
-                        ate_character: true
+                        ate_item: true
                     },
                 };
                 arms.push(arm);
@@ -61,18 +95,18 @@ pub(super) fn expand_trie(
             states.push(new_state_name_ident.clone());
 
             let arm: Arm = parse_quote! {
-                (States::#prev_state, #chr) => ::derive_finite_automaton::GetNextResult::NewState(States::#new_state_name_ident),
+                (#states_ident::#prev_state, #item) => ::derive_finite_automaton::GetNextResult::NewState(#states_ident::#new_state_name_ident),
             };
             arms.push(arm);
 
-            expand_trie(sub_trie, arms, states, &new_state_name_ident);
+            expand_trie(sub_trie, arms, states, &new_state_name_ident, states_ident);
 
             if let Some(value) = &sub_trie.1 {
                 let result = quote! {
-                    ::derive_finite_automaton::GetNextResult::Result { result: #value, ate_character: false, }
+                    ::derive_finite_automaton::GetNextResult::Result { result: #value, ate_item: false, }
                 };
                 let arm: Arm = parse_quote! {
-                    (States::#new_state_name_ident, _) => #result,
+                    (#states_ident::#new_state_name_ident, _) => #result,
                 };
                 arms.push(arm);
             }
@@ -81,21 +115,18 @@ pub(super) fn expand_trie(
 
     // Add expected case
     if trie.1.is_none() {
-        let expected = trie
-            .0
-            .keys()
-            .map(|key| LitChar::new(*key, Span::call_site()));
+        let expected = trie.0.keys().map(|key| key.as_pattern());
 
         let result = quote! {
-            ::derive_finite_automaton::GetNextResult::InvalidCharacter(
-                ::derive_finite_automaton::InvalidCharacter {
-                    received: chr,
+            ::derive_finite_automaton::GetNextResult::InvalidItem(
+                ::derive_finite_automaton::InvalidItem {
+                    received: item,
                     expected: &[ #(#expected),* ]
                 }
             )
         };
         let arm: Arm = parse_quote! {
-            (States::#prev_state, chr) => #result,
+            (#states_ident::#prev_state, item) => #result,
         };
         arms.push(arm);
     }
@@ -103,9 +134,9 @@ pub(super) fn expand_trie(
 
 #[derive(PartialEq, Eq, Hash, Debug)]
 enum Matcher {
-    Single(char),
-    Range { from: char, to: char },
-    Or(Vec<char>),
+    Single(Item),
+    Range { from: Item, to: Item },
+    Or(Vec<Item>),
 }
 
 /// A comma separated list of `"*sequence*" => *output*`
@@ -133,24 +164,14 @@ fn parse_item_to_matchers_and_expression(
         let mut matchers = Vec::new();
         for pat in slice.elems.iter() {
             let matcher = match pat {
-                Pat::Lit(PatLit {
-                    lit: Lit::Char(chr),
-                    ..
-                }) => Matcher::Single(chr.value()),
+                Pat::Lit(PatLit { lit, .. }) => Matcher::Single(Item::from_lit(lit)?),
                 Pat::Or(PatOr { cases, .. }) => {
                     let mut char_cases = Vec::new();
                     for case in cases {
-                        if let Pat::Lit(PatLit {
-                            lit: Lit::Char(chr),
-                            ..
-                        }) = case
-                        {
-                            char_cases.push(chr.value());
+                        if let Pat::Lit(PatLit { lit, .. }) = case {
+                            char_cases.push(Item::from_lit(lit)?);
                         } else {
-                            return Err(SynError::new(
-                                Span::call_site(),
-                                "Expected character matcher",
-                            ));
+                            return Err(SynError::new(Span::call_site(), "Expected item matcher"));
                         }
                     }
                     Matcher::Or(char_cases)
@@ -161,32 +182,20 @@ fn parse_item_to_matchers_and_expression(
                     ..
                 }) => {
                     if let (
-                        Expr::Lit(ExprLit {
-                            lit: Lit::Char(chr_lo),
-                            ..
-                        }),
-                        Expr::Lit(ExprLit {
-                            lit: Lit::Char(chr_hi),
-                            ..
-                        }),
+                        Expr::Lit(ExprLit { lit: lit_from, .. }),
+                        Expr::Lit(ExprLit { lit: lit_to, .. }),
                     ) = (&**start, &**end)
                     {
                         Matcher::Range {
-                            from: chr_lo.value(),
-                            to: chr_hi.value(),
+                            from: Item::from_lit(lit_from)?,
+                            to: Item::from_lit(lit_to)?,
                         }
                     } else {
-                        return Err(SynError::new(
-                            Span::call_site(),
-                            "Expected character matcher",
-                        ));
+                        return Err(SynError::new(Span::call_site(), "Expected item matcher"));
                     }
                 }
                 _ => {
-                    return Err(SynError::new(
-                        Span::call_site(),
-                        "Expected character matcher",
-                    ));
+                    return Err(SynError::new(Span::call_site(), "Expected item matcher"));
                 }
             };
 
@@ -195,12 +204,21 @@ fn parse_item_to_matchers_and_expression(
         matchers
     } else if let Pat::Lit(PatLit { lit, .. }) = pat {
         if let Lit::Str(string) = lit {
-            string.value().chars().map(Matcher::Single).collect()
+            string
+                .value()
+                .chars()
+                .map(Item::Char)
+                .map(Matcher::Single)
+                .collect()
+        } else if let Lit::ByteStr(bstring) = lit {
+            bstring
+                .value()
+                .into_iter()
+                .map(Item::Byte)
+                .map(Matcher::Single)
+                .collect()
         } else {
-            return Err(SynError::new(
-                Span::call_site(),
-                "Expected character matcher",
-            ));
+            return Err(SynError::new(Span::call_site(), "Expected item matcher"));
         }
     } else {
         return Err(SynError::new(
@@ -213,19 +231,19 @@ fn parse_item_to_matchers_and_expression(
     Ok((matchers, expr))
 }
 
-impl From<Mappings> for Trie<char, Expr> {
-    fn from(mappings: Mappings) -> Trie<char, Expr> {
+impl From<Mappings> for Trie<Item, Expr> {
+    fn from(mappings: Mappings) -> Trie<Item, Expr> {
         fn add_item<K, KC, V, I>(node: &mut Trie<K, V>, mut key_chain: KC, value: V)
         where
-            K: std::hash::Hash + PartialEq + Eq + Clone + Copy,
+            K: std::hash::Hash + PartialEq + Eq + Clone,
             KC: Iterator<Item = I> + Clone,
             V: Clone,
             I: IntoIterator<Item = K>,
         {
             if let Some(keys) = key_chain.next() {
                 for key in keys {
-                    if node.0.get(&key).is_none() {
-                        node.0.insert(key, Trie::new());
+                    if !node.0.contains_key(&key) {
+                        node.0.insert(key.clone(), Trie::new());
                     }
                     add_item(
                         node.0.get_mut(&key).unwrap(),
@@ -245,9 +263,17 @@ impl From<Mappings> for Trie<char, Expr> {
             let collect = matches
                 .into_iter()
                 .map(|matcher| match matcher {
-                    Matcher::Single(chr) => either_n::Either3::One(iter::once(chr)),
-                    Matcher::Range { from, to } => either_n::Either3::Two(from..to),
-                    Matcher::Or(chars) => either_n::Either3::Three(chars.into_iter()),
+                    Matcher::Single(item) => either_n::Either4::One(iter::once(item)),
+                    Matcher::Or(items) => either_n::Either4::Two(items.into_iter()),
+                    Matcher::Range {
+                        from: Item::Char(from),
+                        to: Item::Char(to),
+                    } => either_n::Either4::Three((from..to).map(Item::Char)),
+                    Matcher::Range {
+                        from: Item::Byte(from),
+                        to: Item::Byte(to),
+                    } => either_n::Either4::Four((from..to).map(Item::Byte)),
+                    Matcher::Range { .. } => panic!("Cannot make range out of patter"),
                 })
                 .collect::<Vec<_>>();
 
@@ -261,13 +287,13 @@ impl From<Mappings> for Trie<char, Expr> {
 
 #[cfg(test)]
 mod tests {
-    use crate::trie::Trie;
+    use crate::trie::{Item, Trie};
 
     use super::Mappings;
     use syn::{self, parse_quote};
 
     #[test]
-    fn test_mappings() {
+    fn test_char_mappings() {
         let attr: syn::Attribute = parse_quote! {
             #[mappings(
                 "abc" => 4,
@@ -279,11 +305,11 @@ mod tests {
         let trie: Trie<_, _> = mappings.into();
 
         assert!(trie.1.is_none());
-        let a = trie.0.get(&'a').unwrap();
-        let b = a.0.get(&'b').unwrap();
-        let c = b.0.get(&'c').unwrap();
+        let a = trie.0.get(&Item::Char('a')).unwrap();
+        let b = a.0.get(&Item::Char('b')).unwrap();
+        let c = b.0.get(&Item::Char('c')).unwrap();
         assert!(c.1.is_some());
-        let d = c.0.get(&'d').unwrap();
+        let d = c.0.get(&Item::Char('d')).unwrap();
         assert!(d.is_leaf());
     }
 }

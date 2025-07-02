@@ -3,18 +3,19 @@ use derive_finite_automaton::{
 };
 
 #[derive(Debug, FiniteAutomataConstructor)]
+#[automaton_item_type(u8)]
 #[automaton_mappings(
-    "{" => Tokens::OpenBrace,
-    "}" => Tokens::CloseBrace,
-    "<" => Tokens::LessThan,
-    ">" => Tokens::GreaterThan,
-    "=>" => Tokens::ArrowFunction,
-    "==" => Tokens::Equal,
-    "===" => Tokens::StrictEqual,
-    "=" => Tokens::Assign,
+    b"{" => Tokens::OpenBrace,
+    b"}" => Tokens::CloseBrace,
+    b"<" => Tokens::LessThan,
+    b">" => Tokens::GreaterThan,
+    b"=>" => Tokens::ArrowFunction,
+    b"==" => Tokens::Equal,
+    b"===" => Tokens::StrictEqual,
+    b"=" => Tokens::Assign,
     // Some mapping
-    "." => Tokens::Dot,
-    "..." => Tokens::Spread,
+    b"." => Tokens::Dot,
+    b"..." => Tokens::Spread,
 )]
 pub enum Tokens {
     OpenBrace,
@@ -27,7 +28,7 @@ pub enum Tokens {
     Spread,
     LessThan,
     GreaterThan,
-    Literal(String),
+    Literal(Vec<u8>),
 }
 
 #[derive(PartialEq)]
@@ -40,27 +41,27 @@ enum LexingState {
 fn main() {
     let now = std::time::Instant::now();
 
-    let source = if let Ok(source) = std::fs::read_to_string("./private/tokens.txt") {
+    let source = if let Ok(source) = std::fs::read("./private/tokens.txt") {
         source
     } else {
         eprintln!("using internal source");
-        "{} {} == = === => =={as==}}a . ...a".to_owned()
+        b"{} {} == = === => =={as==}}a . ...a".to_vec()
     };
 
     let mut state = LexingState::None;
     let mut tokens = Vec::new();
     let mut start: usize = 0;
 
-    for (idx, chr) in source.char_indices() {
+    for (idx, byte) in source.clone().into_iter().enumerate() {
         match state {
             LexingState::Literal => {
-                if !chr.is_ascii_alphabetic() {
-                    tokens.push(Tokens::Literal(source[start..idx].to_owned()));
+                if !matches!(byte, b'a'..=b'z' | b'A'..=b'Z') {
+                    tokens.push(Tokens::Literal(source[start..idx].to_vec()));
                     start = 0;
                     state = LexingState::None;
                 }
             }
-            LexingState::Symbol(symbol_state) => match symbol_state.get_next(chr) {
+            LexingState::Symbol(symbol_state) => match symbol_state.get_next(byte) {
                 GetNextResult::Result { result, ate_item } => {
                     tokens.push(result);
                     state = LexingState::None;
@@ -78,15 +79,15 @@ fn main() {
             LexingState::None => {}
         }
         if state == LexingState::None {
-            match chr {
-                'a'..='z' | 'A'..='Z' => {
+            match byte {
+                b'a'..=b'z' | b'A'..=b'Z' => {
                     start = idx;
                     state = LexingState::Literal;
                 }
-                chr if chr.is_whitespace() => {}
-                chr => {
+                b' ' => {}
+                byte => {
                     let automaton = Tokens::new_automaton();
-                    match automaton.get_next(chr) {
+                    match automaton.get_next(byte) {
                         GetNextResult::Result {
                             result,
                             ate_item: _, // Should always be true
@@ -107,9 +108,9 @@ fn main() {
     // Trailing state
     match state {
         LexingState::Literal => {
-            tokens.push(Tokens::Literal(source[start..].to_owned()));
+            tokens.push(Tokens::Literal(source[start..].to_vec()));
         }
-        LexingState::Symbol(symbol_state) => match symbol_state.get_next(0 as char) {
+        LexingState::Symbol(symbol_state) => match symbol_state.get_next(0) {
             GetNextResult::Result {
                 result,
                 ate_item: _, // Should always be true

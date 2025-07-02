@@ -12,6 +12,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
+path = "macro.rs"
 name = "derive_finite_automaton_derive"
 proc-macro = true
 

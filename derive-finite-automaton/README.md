@@ -3,7 +3,7 @@
 [![crates.io badge](https://img.shields.io/crates/v/derive-finite-automaton?style=flat-square)](https://crates.io/crates/derive-finite-automaton)
 [![docs.rs badge](https://img.shields.io/docsrs/derive-finite-automaton?style=flat-square)](https://docs.rs/derive-finite-automaton/latest)
 
-A procedural macro for building a finite automaton. Main use is for lexing multiple character wide tokens see [`derive-finite-automaton/examples/main.rs`](derive-finite-automaton/examples/main.rs).
+A procedural macro for building a finite automaton. Main use is for lexing multiple item wide tokens see [`derive-finite-automaton/examples/main.rs`](derive-finite-automaton/examples/main.rs).
 
 Run example:
 
