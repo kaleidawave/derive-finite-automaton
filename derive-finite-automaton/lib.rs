@@ -54,19 +54,18 @@ where
         f.write_str("Expected ")?;
         match self.expected {
             [] => unreachable!(),
-            [a] => f.write_fmt(format_args!("{:?}", a)),
-            // [a, b] => f.write_fmt(format_args!("{:?} or {:?}", a, b)),
+            [a] => f.write_fmt(format_args!("{a:?}")),
             [head @ .., end] => f.write_fmt(format_args!(
-                "{} or {:?}",
-                head.iter()
-                    .map(|chr| format!("{:?}", chr))
+                "{head} or {end:?}",
+                head = head
+                    .iter()
+                    .map(|chr| format!("{chr:?}"))
                     .reduce(|mut a, b| {
                         a.push_str(", ");
                         a.push_str(&b);
                         a
                     })
                     .unwrap(),
-                end
             )),
         }?;
         write!(f, " found {:?}", self.received)
